@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # CTRL Campus
 
 A comprehensive campus management platform built with the MERN stack.
