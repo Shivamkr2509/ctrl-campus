@@ -1,0 +1,69 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isProfessor() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.userType == 'professor';
+    }
+    
+    function isStudent() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.userType == 'student';
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (isOwner(userId) || isProfessor());
+      allow create: if isAuthenticated();
+      allow update: if isOwner(userId);
+      allow delete: if false; // Prevent user deletion
+    }
+
+    // Courses collection
+    match /courses/{courseId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isProfessor();
+    }
+
+    // Assignments collection
+    match /assignments/{assignmentId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isProfessor();
+    }
+
+    // Materials collection
+    match /materials/{materialId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isProfessor();
+    }
+
+    // Submissions collection
+    match /submissions/{submissionId} {
+      allow read: if isAuthenticated() && (
+        isOwner(resource.data.studentId) || 
+        isProfessor()
+      );
+      allow create: if isStudent();
+      allow update: if isStudent() && isOwner(resource.data.studentId);
+      allow delete: if false;
+    }
+
+    // Chat messages
+    match /chatRooms/{roomId}/messages/{messageId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && isOwner(resource.data.senderId);
+      allow delete: if isAuthenticated() && isOwner(resource.data.senderId);
+    }
+  }
+}
